@@ -12,10 +12,9 @@ build-type:             Simple
 cabal-version:          >= 1.10
 
 description:
-    The GHC extension DerivingVia allow derivation through a specific
-    morphism: coerce. We present a library iso-deriving generalizing DerivingVia
-    to arbitrary morphisms. This is particularly useful for prototypes and
-    specifications of instances.
+    The GHC extension DerivingVia allow derivation through a specific morphism:
+    coerce. This library helps generalizing DerivingVia to arbitrary morphisms.
+    This is particularly useful for prototypes and specifications of instances.
 
 extra-source-files:     README.md
 
