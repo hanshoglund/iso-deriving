@@ -6,7 +6,7 @@ maintainer:             Hans Hoeglund <hans.hoeglund@tweag.io>
 license:                MIT
 license-file:           LICENSE
 synopsis:               A set of libraries for composition, analysis and manipulation of music.
-category:               Music
+category:               Generics
 tested-with:            GHC
 build-type:             Simple
 cabal-version:          >= 1.10
