@@ -1,29 +1,28 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Main where
 
-import Iso.Deriving
-import Data.Monoid (Ap(..), Any(..))
+import Control.Monad.Writer (WriterT (..))
 import Data.Coerce (coerce)
-import Control.Monad.Writer (WriterT(..))
+import Data.Monoid (Any (..), Ap (..))
+import Iso.Deriving
 
 main = pure () -- TODO
 
-data Point a = Point { x :: a, y :: a }
+data Point a = Point {x :: a, y :: a}
   deriving (Eq, Show, Functor)
-
-  deriving Num
+  deriving
+    (Num)
     via (Squared a `As` Point a)
-
-  deriving (Applicative, Monad)
+  deriving
+    (Applicative, Monad)
     via (Squared `As1` Point)
-
 
 type Squared = Ap ((->) Bool)
 
@@ -33,30 +32,31 @@ instance Inject (Squared a) (Point a) where
 instance Project (Squared a) (Point a) where
   prj (Point x y) = coerce $ \p -> if not p then x else y
 
-instance Isomorphic (Squared a) (Point a) where
-
+instance Isomorphic (Squared a) (Point a)
 
 data NoneOrMore
-  = None
-    -- ^ No elements
-  | OneOrMore
-    -- ^ At least one element
-  deriving (Semigroup, Monoid)
+  = -- | No elements
+    None
+  | -- | At least one element
+    OneOrMore
+  deriving
+    (Semigroup, Monoid)
     via (Any `As` NoneOrMore)
 
 instance Inject Any NoneOrMore where
-  inj (Any False)    = None
-  inj (Any True)     = OneOrMore
+  inj (Any False) = None
+  inj (Any True) = OneOrMore
 
 instance Project Any NoneOrMore where
-  prj None           = Any False
-  prj OneOrMore      = Any True
+  prj None = Any False
+  prj OneOrMore = Any True
 
 instance Isomorphic Any NoneOrMore
 
 data These a b = This a | That b | These a b
   deriving stock (Functor)
-  deriving (Applicative, Monad)
+  deriving
+    (Applicative, Monad)
     via (TheseMonad a `As1` These a)
 
 type TheseMonad a = WriterT (Maybe a) (Either a)
@@ -71,4 +71,4 @@ instance Inject (TheseMonad a b) (These a b) where
   inj (WriterT (Right (b, Nothing))) = That b
   inj (WriterT (Right (b, Just a))) = These a b
 
-instance Isomorphic (TheseMonad a b) (These a b) where
+instance Isomorphic (TheseMonad a b) (These a b)
