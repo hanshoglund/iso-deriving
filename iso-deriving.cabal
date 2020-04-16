@@ -5,7 +5,7 @@ author:                 Hans Hoeglund
 maintainer:             Hans Hoeglund <hans.hoeglund@tweag.io>
 license:                MIT
 license-file:           LICENSE
-synopsis:               A set of libraries for composition, analysis and manipulation of music.
+synopsis:               Deriving via arbitrary isomorphisms.
 category:               Generics
 tested-with:            GHC
 build-type:             Simple
@@ -28,7 +28,7 @@ flag strict
   default: False
 
 library
-    build-depends:      base >= 4.13 && < 5,
+    build-depends:      base >= 4.12 && < 5,
                         profunctors
 
     exposed-modules:    Iso.Deriving
