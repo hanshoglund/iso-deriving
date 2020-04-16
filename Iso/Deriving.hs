@@ -5,6 +5,8 @@ module Iso.Deriving
 ( As(..)
 , As1(..)
 , As2(..)
+, Inject(..)
+, Project(..)
 , Isomorphic(..)
 )
 where
@@ -53,19 +55,22 @@ newtype As1 f g a   = As1 { getAs1 :: g a }
 -- type As2 :: k1 -> (k2 -> k3 -> Type) -> k2 -> k3 -> Type
 newtype As2 f g a b = As2 (g a b)
 
+
+class Inject a b where
+  inj :: a -> b
+
+class Project a b where
+  prj :: b -> a
+
 -- |
 -- Laws: 'isom' is an isomorphism, that is:
 --
 -- @
 -- view isom . view (from isom) = id = view (from isom) . view isom
 -- @
-class Isomorphic a b  where
+class (Inject a b, Project a b) => Isomorphic a b where
   isom :: Iso' a b
   isom = iso inj prj
-
-  -- TODO superclasses
-  inj :: a -> b
-  prj :: b -> a
 
 instance (Isomorphic a b, Num a) => Num (As a b) where
    (As a) + (As b) =
