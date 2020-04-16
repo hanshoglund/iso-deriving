@@ -72,6 +72,15 @@ class (Inject a b, Project a b) => Isomorphic a b where
   isom :: Iso' a b
   isom = iso inj prj
 
+instance (Project a b, Eq a) => Eq (As a b) where
+  As a == As b = prj @a @b a == prj b
+
+instance (Project a b, Ord a) => Ord (As a b) where
+  compare (As a) (As b) = prj @a @b a `compare` prj b
+
+instance (Project a b, Show a) => Show (As a b) where
+  showsPrec n (As a) = showsPrec n $ prj @a @b a
+
 instance (Isomorphic a b, Num a) => Num (As a b) where
 
   (As a) + (As b) =
@@ -92,11 +101,8 @@ instance (Isomorphic a b, Num a) => Num (As a b) where
   fromInteger x =
     As $ inj @a @b $ fromInteger x
 
-instance (Isomorphic a b, Eq a) => Eq (As a b) where
-  As a == As b = prj @a @b a == prj b
-
-instance (Isomorphic a b, Ord a) => Ord (As a b) where
-  compare (As a) (As b) = prj @a @b a `compare` prj b
+instance (Isomorphic a b, Real a) => Real (As a b) where
+  toRational (As x) = toRational $ prj @a @b x
 
 instance (Isomorphic a b, Semigroup a) => Semigroup (As a b) where
   As a <> As b = As $ inj @a @b $ prj a <> prj b
