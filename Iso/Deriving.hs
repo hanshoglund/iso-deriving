@@ -29,7 +29,6 @@ import Data.Bifunctor ()
 import Data.Profunctor (Profunctor (..))
 import Prelude hiding ((.), id)
 
-
 type Iso s t a b = forall p f. (Profunctor p, Functor f) => p a (f b) -> p s (f t)
 
 type Iso' s a = Iso s s a a
@@ -110,7 +109,7 @@ instance (forall x. Isomorphic (f x) (g x), Functor f) => Functor (As1 f g) wher
 
 instance (forall x. Isomorphic (f x) (g x), Applicative f) => Applicative (As1 f g) where
 
-  pure :: forall a . a -> As1 f g a
+  pure :: forall a. a -> As1 f g a
   pure x = As1 $ inj @(f _) @(g _) $ pure x
 
   (<*>) :: forall a b. As1 f g (a -> b) -> As1 f g a -> As1 f g b
@@ -128,7 +127,6 @@ instance (forall x. Isomorphic (f x) (g x), Alternative f) => Alternative (As1 f
   As1 h <|> As1 x = As1 $ inj @(f a) @(g a) $ (prj @(f a) @(g a) h) <|> (prj @(f a) @(g a) x)
 
 instance (forall x. Isomorphic (f x) (g x), Monad f) => Monad (As1 f g) where
-
   (>>=) :: forall a b. As1 f g a -> (a -> As1 f g b) -> As1 f g b
   As1 k >>= f = As1 $ inj @(f b) @(g b) $ (prj @(f a) @(g a) k) >>= prj . getAs1 . f
 
