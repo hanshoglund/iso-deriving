@@ -1,6 +1,6 @@
 version: 2.1
 jobs:
-  build-nix-cabal:
+  build:
     docker:
       - image: nixos/nix:2.3@sha256:af330838e838cedea2355e7ca267280fc9dd68615888f4e20972ec51beb101d8
         environment:
@@ -8,26 +8,26 @@ jobs:
     steps:
       - checkout
       - run: nix-shell --pure --command "cabal update && cabal test"
-  build-stack:
-    docker:
-      - image: fpco/stack-build:lts
-    steps:
-      - checkout
-      - restore_cache:
-          name: Restore Cached Dependencies
-          keys:
-            - cci-demo-haskell-v1-{{ checksum "stack.yaml" }}-{{ checksum "package.yaml" }}
-            - cci-demo-haskell-v1-{{ checksum "stack.yaml" }}
-      - run:
-          name: Resolve/Update Dependencies
-          command: stack --no-terminal setup
-      - run:
-          name: Run tests
-          command: stack --no-terminal test
-      - save_cache:
-          name: Cache Dependencies
-          key: cci-demo-haskell-v1-{{ checksum "stack.yaml" }}-{{ checksum "package.yaml" }}
-          paths:
-            - "/root/.stack"
-            - ".stack-work"
+        # build-stack:
+        #   docker:
+        #     - image: fpco/stack-build:lts
+        #   steps:
+        #     - checkout
+        #     - restore_cache:
+        #         name: Restore Cached Dependencies
+        #         keys:
+        #           - cci-demo-haskell-v1-{{ checksum "stack.yaml" }}-{{ checksum "package.yaml" }}
+        #           - cci-demo-haskell-v1-{{ checksum "stack.yaml" }}
+        #     - run:
+        #         name: Resolve/Update Dependencies
+        #         command: stack --no-terminal setup
+        #     - run:
+        #         name: Run tests
+        #         command: stack --no-terminal test
+        #     - save_cache:
+        #         name: Cache Dependencies
+        #         key: cci-demo-haskell-v1-{{ checksum "stack.yaml" }}-{{ checksum "package.yaml" }}
+        #         paths:
+        #           - "/root/.stack"
+        #           - ".stack-work"
 
