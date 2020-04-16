@@ -1,42 +1,56 @@
-
 {-# LANGUAGE DerivingVia, RankNTypes, InstanceSigs, TypeOperators, TypeApplications, QuantifiedConstraints, StandaloneDeriving, KindSignatures, PolyKinds, MultiParamTypeClasses, FlexibleInstances, DeriveFunctor, GeneralizedNewtypeDeriving, ScopedTypeVariables #-}
 
+
+module Iso.Deriving
+( As(..)
+, As1(..)
+, As2(..)
+, Isomorphic(..)
+)
+where
+
 import Prelude hiding ((.), id)
-import Control.Lens (Iso', iso, to, from, view, coerced, enum) -- TODO loose lens dep!
-import Control.Monad.Free
-import Data.Monoid hiding (Product)
+-- import Control.Lens (Iso', iso, to, from, view, coerced, enum) -- TODO loose lens dep!
+-- import Control.Monad.Free
+-- import Data.Monoid hiding (Product)
 import Control.Applicative
 import Control.Category
-import Data.Maybe (catMaybes)
-import Data.Profunctor (Star(..))
-import Control.Arrow (Kleisli(..))
-import Control.Monad.State
-import Data.Functor.Compose
-import Data.Functor.Product
-import Data.Functor.Const
-import Data.Functor.Identity
-import Data.Coerce (coerce)
-import Control.Monad.Writer hiding (Product)
+import Data.Bifunctor ()
+-- import Data.Maybe (catMaybes)
+import Data.Profunctor (Profunctor(..))
+-- import Control.Arrow (Kleisli(..))
+-- import Control.Monad.State
+-- import Data.Functor.Compose
+-- import Data.Functor.Product
+-- import Data.Functor.Const
+-- import Data.Functor.Identity
+-- import Data.Coerce (coerce)
+-- import Control.Monad.Writer hiding (Product)
 
+type Iso s t a b = forall p f. (Profunctor p, Functor f) => p a (f b) -> p s (f t)
+type Iso' s a = Iso s s a a
+
+iso :: (s -> a) -> (b -> t) -> Iso s t a b
+iso sa bt = dimap sa (fmap bt)
 
 -- |
 -- @As a b@ is represented at runtime as @b@, but we know we can in fact
 -- convert it into an @a@ with no loss of information. We can think of it has
 -- having a *dual representation* as either @a@ or @b@.
 --
-type As1 :: k -> Type -> Type
+-- type As1 :: k -> Type -> Type
 newtype As a b = As b
 
 -- |
 -- Like @As@ for kind @k -> Type@.
 --
-type As1 :: k1 -> (k2 -> Type) -> k2 -> Type
+-- type As1 :: k1 -> (k2 -> Type) -> k2 -> Type
 newtype As1 f g a   = As1 { getAs1 :: g a }
 
 -- |
 -- Like @As@ for kind @k1 -> k2 -> Type@.
 --
-type As2 :: k1 -> (k2 -> k3 -> Type) -> k2 -> k3 -> Type
+-- type As2 :: k1 -> (k2 -> k3 -> Type) -> k2 -> k3 -> Type
 newtype As2 f g a b = As2 (g a b)
 
 -- |
@@ -49,11 +63,9 @@ class Isomorphic a b  where
   isom :: Iso' a b
   isom = iso inj prj
 
-  inj :: Isomorphic a b => a -> b
-  inj = view isom
-
-  prj :: Isomorphic a b => b -> a
-  prj = view $ from isom
+  -- TODO superclasses
+  inj :: a -> b
+  prj :: b -> a
 
 instance (Isomorphic a b, Num a) => Num (As a b) where
    (As a) + (As b) =
@@ -90,7 +102,8 @@ instance (forall x . Isomorphic (f x) (g x), Applicative f) => Applicative (As1 
   (<*>) :: forall a b . As1 f g (a -> b) -> As1 f g a -> As1 f g b
   As1 h <*> As1 x = As1 $ inj @(f b) @(g b) $ (prj @(f (a -> b)) @(g (a -> b)) h) <*> (prj @(f a) @(g a) x)
 
-  liftA2 h (As1 x) (As1 y) = As1 $ inj $ liftA2 h (prj x) (prj y)
+  liftA2 :: forall a b c . (a -> b -> c) -> As1 f g a -> As1 f g b -> As1 f g c
+  liftA2 h (As1 x) (As1 y) = As1 $ inj @(f c) @(g c) $ liftA2 h (prj x) (prj y)
 
 instance (forall x . Isomorphic (f x) (g x), Alternative f) => Alternative (As1 f g) where
   empty :: forall a . As1 f g a
