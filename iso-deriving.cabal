@@ -1,6 +1,6 @@
 
 name:                   iso-deriving
-version:                0.0.1
+version:                0.0.2
 author:                 Hans Hoeglund
 maintainer:             Hans Hoeglund <hans.hoeglund@tweag.io>
 license:                MIT
@@ -24,7 +24,7 @@ source-repository head
     location:         	git://github.com/hanshoglund/iso-deriving.git
 
 library
-    build-depends:      base,
+    build-depends:      base >= 4.13 && < 5,
                         profunctors
 
     exposed-modules:    Iso.Deriving
