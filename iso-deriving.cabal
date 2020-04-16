@@ -23,6 +23,10 @@ source-repository head
     type:             	git
     location:         	git://github.com/hanshoglund/iso-deriving.git
 
+flag strict
+  manual: True
+  default: False
+
 library
     build-depends:      base >= 4.13 && < 5,
                         profunctors
@@ -38,8 +42,10 @@ library
     -Wredundant-constraints
     -Wno-unused-top-binds
     -Wno-name-shadowing
-    -Werror
-    -- TODO: Do not use -Werror by default for a library!
+
+  if flag(strict)
+    ghc-options:
+      -Werror
 
 test-suite "iso-deriving-tests"
     build-depends:      base,
