@@ -7,4 +7,4 @@ jobs:
           LC_ALL: C.UTF-8
     steps:
       - checkout
-      - run: nix-shell --pure --command "cabal update && cabal test --flags=strict"
+      - run: nix-shell --pure --command "cabal update && cabal test --flags=strict && cabal haddock"

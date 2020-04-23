@@ -15,7 +15,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Iso.Deriving
-  ( As (..),
+  ( Iso,
+    Iso',
+    As (..),
     As1 (..),
     As2 (..),
     Inject (..),
@@ -47,25 +49,27 @@ iso sa bt = dimap sa (fmap bt)
 
 -- |
 -- @As a b@ is represented at runtime as @b@, but we know we can in fact
--- convert it into an @a@ with no loss of information. We can think of it has
--- having a *dual representation* as either @a@ or @b@.
+-- convert it into an @a@ with no loss of information.
 --
--- type As1 :: Type -> Type -> Type
+-- We can think of it as
+-- having a /dual representation/ as either @a@ or @b@.
+--
 newtype As (a :: Type) b = As b
+-- type As1 :: Type -> Type -> Type
 
 -- |
 -- Like @As@ for kind @k -> Type@.
 --
--- type As1 :: (k1 -> Type) -> (k1 -> Type) -> k1 -> Type
 newtype As1 (f :: k1 -> Type) (g :: k1 -> Type) (a :: k1)
   = As1 {getAs1 :: g a}
+-- type As1 :: (k1 -> Type) -> (k1 -> Type) -> k1 -> Type
 
 -- |
 -- Like @As@ for kind @k1 -> k2 -> Type@.
 --
--- type As2 :: (k1 -> k2 -> Type) -> (k1 -> k2 -> Type) -> k1 -> k2 -> Type
 newtype As2 f g a b
   = As2 (g a b)
+-- type As2 :: (k1 -> k2 -> Type) -> (k1 -> k2 -> Type) -> k1 -> k2 -> Type
 
 class Inject a b where
   inj :: a -> b
@@ -74,14 +78,24 @@ class Project a b where
   prj :: b -> a
 
 -- |
--- Laws: 'isom' is an isomorphism, that is:
+-- Class of isomorphic types.
 --
--- @
--- view isom . view (from isom) = id = view (from isom) . view isom
--- @
+-- ==== Laws
+--
+-- [/right-inverse/]
+--
+--    @'inj' . 'prj' = id@
+--
+-- [/left-inverse/]
+--
+--    @'prj' . 'inj' = id@
+--
+-- [/compatibility/]
+--
+--    @'isom' = 'dimap' 'inj' ('fmap' 'prj')@
 class (Inject a b, Project a b) => Isomorphic a b where
   isom :: Iso' a b
-  isom = iso inj prj
+  isom = iso (inj @a @b) (prj @a @b)
 
 instance (Project a b, Eq a) => Eq (As a b) where
   As a == As b = prj @a @b a == prj b
