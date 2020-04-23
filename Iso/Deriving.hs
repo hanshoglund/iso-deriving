@@ -30,12 +30,15 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
 import Data.Bifunctor ()
-import Data.Functor.Classes (Eq1)
 import Data.Kind
 import Data.Profunctor (Profunctor (..))
 import Prelude hiding ((.), id)
 
-type Iso s t a b = forall p f. (Profunctor p, Functor f) => p a (f b) -> p s (f t)
+type Iso s t a b =
+  forall p f.
+  (Profunctor p, Functor f) =>
+  p a (f b) ->
+  p s (f t)
 
 type Iso' s a = Iso s s a a
 
@@ -54,13 +57,15 @@ newtype As (a :: Type) b = As b
 -- Like @As@ for kind @k -> Type@.
 --
 -- type As1 :: (k1 -> Type) -> (k1 -> Type) -> k1 -> Type
-newtype As1 (f :: k1 -> Type) (g :: k1 -> Type) (a :: k1) = As1 {getAs1 :: g a}
+newtype As1 (f :: k1 -> Type) (g :: k1 -> Type) (a :: k1)
+  = As1 {getAs1 :: g a}
 
 -- |
 -- Like @As@ for kind @k1 -> k2 -> Type@.
 --
 -- type As2 :: (k1 -> k2 -> Type) -> (k1 -> k2 -> Type) -> k1 -> k2 -> Type
-newtype As2 f g a b = As2 (g a b)
+newtype As2 f g a b
+  = As2 (g a b)
 
 class Inject a b where
   inj :: a -> b
@@ -88,8 +93,6 @@ instance (Project a b, Ord a) => Ord (As a b) where
 
 instance (Project a b, Show a) => Show (As a b) where
   showsPrec n (As a) = showsPrec n $ prj @a @b a
-
--- instance (forall x . Isomorphic (f x) (g x), Eq1 f) => Eq1 (As1 f g) where
 
 instance (Isomorphic a b, Num a) => Num (As a b) where
 
@@ -120,31 +123,61 @@ instance (Isomorphic a b, Semigroup a) => Semigroup (As a b) where
 instance (Isomorphic a b, Monoid a) => Monoid (As a b) where
   mempty = As $ inj @a @b mempty
 
-instance (forall x. Isomorphic (f x) (g x), Functor f) => Functor (As1 f g) where
+instance
+  (forall x. Isomorphic (f x) (g x), Functor f) =>
+  Functor (As1 f g)
+  where
   fmap h (As1 x) = As1 $ inj $ fmap h $ prj @(f _) @(g _) x
 
-instance (forall x. Isomorphic (f x) (g x), Applicative f) => Applicative (As1 f g) where
+instance
+  (forall x. Isomorphic (f x) (g x), Applicative f) =>
+  Applicative (As1 f g)
+  where
 
   pure :: forall a. a -> As1 f g a
-  pure x = As1 $ inj @(f _) @(g _) $ pure x
+  pure x =
+    As1 $ inj @(f _) @(g _) $
+      pure x
 
-  (<*>) :: forall a b. As1 f g (a -> b) -> As1 f g a -> As1 f g b
-  As1 h <*> As1 x = As1 $ inj @(f b) @(g b) $ (prj @(f (a -> b)) @(g (a -> b)) h) <*> (prj @(f a) @(g a) x)
+  (<*>) ::
+    forall a b.
+    As1 f g (a -> b) ->
+    As1 f g a ->
+    As1 f g b
+  As1 h <*> As1 x =
+    As1 $ inj @(f b) @(g b) $
+      (prj @(f (a -> b)) @(g (a -> b)) h) <*> (prj @(f a) @(g a) x)
 
-  liftA2 :: forall a b c. (a -> b -> c) -> As1 f g a -> As1 f g b -> As1 f g c
+  liftA2 ::
+    forall a b c.
+    (a -> b -> c) ->
+    As1 f g a ->
+    As1 f g b ->
+    As1 f g c
   liftA2 h (As1 x) (As1 y) = As1 $ inj @(f c) @(g c) $ liftA2 h (prj x) (prj y)
 
-instance (forall x. Isomorphic (f x) (g x), Alternative f) => Alternative (As1 f g) where
+instance
+  (forall x. Isomorphic (f x) (g x), Alternative f) =>
+  Alternative (As1 f g)
+  where
 
   empty :: forall a. As1 f g a
   empty = As1 $ inj @(f a) @(g a) $ empty
 
   (<|>) :: forall a. As1 f g a -> As1 f g a -> As1 f g a
-  As1 h <|> As1 x = As1 $ inj @(f a) @(g a) $ (prj @(f a) @(g a) h) <|> (prj @(f a) @(g a) x)
+  As1 h <|> As1 x =
+    As1 $ inj @(f a) @(g a) $
+      (prj @(f a) @(g a) h) <|> (prj @(f a) @(g a) x)
 
 instance (forall x. Isomorphic (f x) (g x), Monad f) => Monad (As1 f g) where
-  (>>=) :: forall a b. As1 f g a -> (a -> As1 f g b) -> As1 f g b
-  As1 k >>= f = As1 $ inj @(f b) @(g b) $ (prj @(f a) @(g a) k) >>= prj . getAs1 . f
+  (>>=) ::
+    forall a b.
+    As1 f g a ->
+    (a -> As1 f g b) ->
+    As1 f g b
+  As1 k >>= f =
+    As1 $ inj @(f b) @(g b) $
+      (prj @(f a) @(g a) k) >>= prj . getAs1 . f
 
 instance
   forall f g s.
@@ -152,28 +185,72 @@ instance
   MonadState s (As1 f g)
   where
   state :: forall a. (s -> (a, s)) -> As1 f g a
-  state k = As1 $ inj @(f a) @(g a) (state @s @f k)
+  state k =
+    As1 $
+      inj @(f a) @(g a)
+        (state @s @f k)
 
 instance
   forall f g s.
   (forall x. Isomorphic (f x) (g x), MonadReader s f) =>
   MonadReader s (As1 f g)
   where
-  reader :: forall a. (s -> (a)) -> As1 f g a
-  reader k = As1 $ inj @(f a) @(g a) (reader @s @f k)
+
+  reader :: forall a. (s -> a) -> As1 f g a
+  reader k =
+    As1 $
+      inj @(f a) @(g a)
+        (reader @s @f k)
+
+  local ::
+    forall a.
+    (s -> s) ->
+    As1 f g a ->
+    As1 f g a
+  local f (As1 k) =
+    As1 $
+      inj @(f a) @(g a)
+        (local f (prj @(f a) @(g a) k))
 
 instance
   forall f g s.
   (forall x. Isomorphic (f x) (g x), MonadWriter s f) =>
   MonadWriter s (As1 f g)
   where
-  writer :: forall a. (a, s) -> As1 f g a
-  writer k = As1 $ inj @(f a) @(g a) (writer @s @f k)
 
-instance (forall x y. Isomorphic (f x y) (g x y), Category f) => Category (As2 f g) where
+  writer :: forall a. (a, s) -> As1 f g a
+  writer k =
+    As1
+      $ inj @(f a) @(g a)
+      $ (writer @s @f k)
+
+  listen ::
+    forall a.
+    As1 f g a ->
+    As1 f g (a, s)
+  listen (As1 k) =
+    As1
+      $ inj @(f (a, s)) @(g (a, s))
+      $ listen (prj @(f a) @(g a) k)
+
+  pass ::
+    forall a.
+    As1 f g (a, s -> s) ->
+    As1 f g a
+  pass (As1 k) =
+    As1
+      $ inj @(f a) @(g a)
+      $ pass (prj @(f _) @(g _) k)
+
+instance
+  (forall x y. Isomorphic (f x y) (g x y), Category f) =>
+  Category (As2 f g)
+  where
 
   id :: forall a. As2 f g a a
-  id = As2 $ inj @(f _ _) @(g _ _) $ Control.Category.id @_ @a
+  id =
+    As2 $ inj @(f a a) @(g a a) $
+      Control.Category.id @_ @a
 
   (.) :: forall a b c. As2 f g b c -> As2 f g a b -> As2 f g a c
   As2 f . As2 g =
