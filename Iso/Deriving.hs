@@ -24,16 +24,16 @@ module Iso.Deriving
   )
 where
 
-import Data.Kind
 import Control.Applicative
 import Control.Category
 import Control.Monad.Reader
-import Control.Monad.Writer
 import Control.Monad.State
+import Control.Monad.Writer
 import Data.Bifunctor ()
+import Data.Functor.Classes (Eq1)
+import Data.Kind
 import Data.Profunctor (Profunctor (..))
 import Prelude hiding ((.), id)
-import Data.Functor.Classes (Eq1)
 
 type Iso s t a b = forall p f. (Profunctor p, Functor f) => p a (f b) -> p s (f t)
 
@@ -81,7 +81,7 @@ class (Inject a b, Project a b) => Isomorphic a b where
 instance (Project a b, Eq a) => Eq (As a b) where
   As a == As b = prj @a @b a == prj b
 
-{-# SPECIALIZE (==) :: As a b -> As a b -> As a b  #-}
+{-# SPECIALIZE (==) :: As a b -> As a b -> As a b #-}
 
 instance (Project a b, Ord a) => Ord (As a b) where
   compare (As a) (As b) = prj @a @b a `compare` prj b
@@ -146,20 +146,29 @@ instance (forall x. Isomorphic (f x) (g x), Monad f) => Monad (As1 f g) where
   (>>=) :: forall a b. As1 f g a -> (a -> As1 f g b) -> As1 f g b
   As1 k >>= f = As1 $ inj @(f b) @(g b) $ (prj @(f a) @(g a) k) >>= prj . getAs1 . f
 
-instance forall f g s . (forall x . Isomorphic (f x) (g x), MonadState s f) =>
-  MonadState s (As1 f g) where
-    state :: forall a . (s -> (a, s)) -> As1 f g a
-    state k = As1 $ inj @(f a) @(g a) (state @s @f k)
+instance
+  forall f g s.
+  (forall x. Isomorphic (f x) (g x), MonadState s f) =>
+  MonadState s (As1 f g)
+  where
+  state :: forall a. (s -> (a, s)) -> As1 f g a
+  state k = As1 $ inj @(f a) @(g a) (state @s @f k)
 
-instance forall f g s . (forall x . Isomorphic (f x) (g x), MonadReader s f) =>
-  MonadReader s (As1 f g) where
-    reader :: forall a . (s -> (a)) -> As1 f g a
-    reader k = As1 $ inj @(f a) @(g a) (reader @s @f k)
+instance
+  forall f g s.
+  (forall x. Isomorphic (f x) (g x), MonadReader s f) =>
+  MonadReader s (As1 f g)
+  where
+  reader :: forall a. (s -> (a)) -> As1 f g a
+  reader k = As1 $ inj @(f a) @(g a) (reader @s @f k)
 
-instance forall f g s . (forall x . Isomorphic (f x) (g x), MonadWriter s f) =>
-  MonadWriter s (As1 f g) where
-    writer :: forall a . (a, s) -> As1 f g a
-    writer k = As1 $ inj @(f a) @(g a) (writer @s @f k)
+instance
+  forall f g s.
+  (forall x. Isomorphic (f x) (g x), MonadWriter s f) =>
+  MonadWriter s (As1 f g)
+  where
+  writer :: forall a. (a, s) -> As1 f g a
+  writer k = As1 $ inj @(f a) @(g a) (writer @s @f k)
 
 instance (forall x y. Isomorphic (f x y) (g x y), Category f) => Category (As2 f g) where
 
