@@ -28,6 +28,7 @@ flag strict
 
 library
     build-depends:      base >= 4.12 && < 5,
+                        mtl,
                         profunctors
 
     exposed-modules:    Iso.Deriving
