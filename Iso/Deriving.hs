@@ -124,6 +124,10 @@ class (Inject a b, Project a b) => Isomorphic a b where
 instance (Inject a b, IsString a) => IsString (As a b) where
   fromString x = As $ inj @a @b $ fromString x
 
+-- TODO right method?
+instance (Inject a b, Read a) => Read (As a b) where
+  -- TODO
+
 instance (Project a b, Eq a) => Eq (As a b) where
   As a == As b = prj @a @b a == prj b
 

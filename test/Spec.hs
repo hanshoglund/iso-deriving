@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
@@ -6,15 +7,19 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
 
 module Main where
 
 import Data.Bifunctor
+import Data.Kind
 import Control.Monad.Writer (WriterT (..))
 import Data.Coerce (coerce)
 import Data.Monoid (Any (..), Ap (..))
 import Control.Monad.State
 import Control.Monad.Except
+import GHC.TypeLits (Symbol)
 import Iso.Deriving
 
 main = pure () -- TODO
@@ -112,4 +117,55 @@ t = do
   when (x > 10) abort
   put $ x + 1
   t
+
+
+data Syntax where
+  Keyword :: Symbol -> Syntax
+  Many1   :: Syntax -> Syntax
+  PrimNat :: Syntax
+  Then    :: Syntax -> Syntax -> Syntax
+
+
+data Grammar :: Syntax -> Type where
+  K :: Grammar (Keyword s)
+  M :: Grammar a -> Grammar (Many1 a)
+  N :: Grammar PrimNat
+  T :: Grammar a -> Grammar b -> Grammar (Then a b)
+
+data Parse :: Syntax -> Type where
+  PK :: Parse (Keyword s)
+  PM :: [Parse a] -> Parse (Many1 a)
+  PN :: Int -> Parse PrimNat
+  PT :: Parse a -> Parse b -> Parse (Then a b)
+
+instance Read (Parse s)
+instance Show (Parse s)
+
+type L = (Then (Keyword "[") (Then (Many1 PrimNat) (Keyword "]")))
+
+ex :: Grammar L
+ex =
+  T K (T (M N) K)
+
+ex1 :: Parse L
+ex1 =
+  PT PK (PT (PM [PN 1, PN 2, PN 3]) PK)
+
+newtype Foo = Foo [Int] -- Our "AST"
+  deriving (Read, Show) via (Parse L `As` Foo)
+
+instance Inject (Parse L) Foo where
+  inj (PT PK (PT (PM a) PK)) = Foo $ fmap (\(PN x) -> x) a
+instance Project (Parse L) Foo where
+instance Isomorphic (Parse L) Foo
+
+{-
+s :: Syntax (((), [(Int, ())]), ()) -- Isomorphic to : [Int]
+s = Then (Then (Keyword "[") (Many1 $ Then PrimNat $ Keyword ",")) (Keyword "]")
+
+-- with suitable Read/Show for Syntax, we can derive Read/Show
+-}
+
+
+
 
