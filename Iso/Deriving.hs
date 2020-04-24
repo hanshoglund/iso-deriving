@@ -100,8 +100,6 @@ class (Inject a b, Project a b) => Isomorphic a b where
 instance (Project a b, Eq a) => Eq (As a b) where
   As a == As b = prj @a @b a == prj b
 
-{-# SPECIALIZE (==) :: As a b -> As a b -> As a b #-}
-
 instance (Project a b, Ord a) => Ord (As a b) where
   compare (As a) (As b) = prj @a @b a `compare` prj b
 
