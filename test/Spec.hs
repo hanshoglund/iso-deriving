@@ -19,12 +19,16 @@ import Data.Bifunctor
 import Data.Kind
 import Control.Monad.Writer (WriterT (..))
 import Data.Coerce (coerce)
+import Data.Traversable (for)
 import Data.Monoid (Any (..), Ap (..))
 import Control.Monad.State
 import Control.Monad.Except
 import GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
 import Data.Proxy
-import Text.Read (Read(..))
+import Text.Read (Read(..), ReadPrec, pfail, look, readPrec_to_P, readP_to_Prec)
+import Text.ParserCombinators.ReadP(many1)
+import qualified Text.Read
+import Data.List (isPrefixOf)
 import Iso.Deriving
 
 main = pure () -- TODO
@@ -132,10 +136,22 @@ data Syntax where
 
 
 data Grammar :: Syntax -> Type where
-  K :: Grammar (Keyword s)
+  K :: KnownSymbol s => Grammar (Keyword s)
   M :: Grammar a -> Grammar (Many1 a)
   N :: Grammar PrimNat
   T :: Grammar a -> Grammar b -> Grammar (Then a b)
+
+class SGrammar s where
+  sing :: Grammar s
+instance KnownSymbol s => SGrammar (Keyword s) where
+  sing = K
+instance SGrammar a => SGrammar (Many1 a) where
+  sing = M sing
+instance SGrammar PrimNat where
+  sing = N
+instance (SGrammar a, SGrammar b) => SGrammar (Then a b) where
+  sing = T sing sing
+
 
 data Parse :: Syntax -> Type where
   PK :: KnownSymbol s => Parse (Keyword s)
@@ -143,11 +159,24 @@ data Parse :: Syntax -> Type where
   PN :: Int -> Parse PrimNat
   PT :: Parse a -> Parse b -> Parse (Then a b)
 
-showPK :: forall s . KnownSymbol s => Parse (Keyword s) -> String
-showPK PK = symbolVal (Proxy @s)
+showPK :: forall proxy s . KnownSymbol s => proxy (Keyword s) -> String
+showPK _ = symbolVal (Proxy @s)
 
-instance Read (Parse s) where
-  readPrec = undefined
+foo :: Grammar s -> ReadPrec (Parse s)
+foo x = case x of
+    k@K -> const PK <$> do
+      let kw = showPK k
+      la <- look
+      if kw `isPrefixOf` la
+        then replicateM (length kw) Text.Read.get
+        else pfail
+    M x -> PM <$> (readP_to_Prec $ const $ many1 $ ($ 0) $ readPrec_to_P $ foo x)
+    N -> PN <$> readPrec
+    T x y -> PT <$> foo x <*> foo y
+
+instance SGrammar s => Read (Parse s) where
+  readPrec = case (sing :: Grammar s) of
+    g -> foo g
 instance Show (Parse s) where
   show x@PK = showPK x
   show (PM xs) = concatMap show xs
@@ -172,6 +201,17 @@ instance Inject (Parse L) Foo where
 instance Project (Parse L) Foo where
   prj (Foo xs) = PT PK $ PT (PM $ fmap PN xs) PK
 instance Isomorphic (Parse L) Foo
+
+type L2 = PrimNat
+
+data Foo2 = Foo2
+  deriving (Show)
+  deriving (Read) via (Parse L2 `As` Foo2)
+
+instance Inject (Parse L2) Foo2 where
+  inj _ = Foo2
+instance Project (Parse L2) Foo2 where
+instance Isomorphic (Parse L2) Foo2
 
 {-
 s :: Syntax (((), [(Int, ())]), ()) -- Isomorphic to : [Int]

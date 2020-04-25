@@ -32,6 +32,7 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
 import Data.Bifunctor ()
+import Text.Read (Read(..))
 import Data.Kind
 import Data.String
 import Data.Profunctor (Profunctor (..))
@@ -126,7 +127,7 @@ instance (Inject a b, IsString a) => IsString (As a b) where
 
 -- TODO right method?
 instance (Inject a b, Read a) => Read (As a b) where
-  -- TODO
+  readPrec = As . inj @a @b <$> readPrec
 
 instance (Project a b, Eq a) => Eq (As a b) where
   As a == As b = prj @a @b a == prj b
