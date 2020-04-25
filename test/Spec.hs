@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Werror#-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -26,7 +27,7 @@ import Control.Monad.Except
 import GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
 import Data.Proxy
 import Text.Read (Read(..), ReadPrec, pfail, look, readPrec_to_P, readP_to_Prec)
-import Text.ParserCombinators.ReadP(many1)
+import Text.ParserCombinators.ReadP(many1, sepBy1)
 import qualified Text.Read
 import Data.List (isPrefixOf)
 import Iso.Deriving
@@ -131,6 +132,7 @@ t = do
 data Syntax where
   Keyword :: Symbol -> Syntax
   Many1   :: Syntax -> Syntax
+  SepBy1  :: Syntax -> Syntax -> Syntax
   PrimNat :: Syntax
   Then    :: Syntax -> Syntax -> Syntax
 
@@ -138,6 +140,7 @@ data Syntax where
 data Grammar :: Syntax -> Type where
   K :: KnownSymbol s => Grammar (Keyword s)
   M :: Grammar a -> Grammar (Many1 a)
+  S :: Grammar a -> Grammar sep -> Grammar (SepBy1 a sep)
   N :: Grammar PrimNat
   T :: Grammar a -> Grammar b -> Grammar (Then a b)
 
@@ -147,6 +150,8 @@ instance KnownSymbol s => SGrammar (Keyword s) where
   sing = K
 instance SGrammar a => SGrammar (Many1 a) where
   sing = M sing
+instance (SGrammar a, SGrammar sep) => SGrammar (SepBy1 a sep) where
+  sing = S sing sing
 instance SGrammar PrimNat where
   sing = N
 instance (SGrammar a, SGrammar b) => SGrammar (Then a b) where
@@ -156,6 +161,7 @@ instance (SGrammar a, SGrammar b) => SGrammar (Then a b) where
 data Parse :: Syntax -> Type where
   PK :: KnownSymbol s => Parse (Keyword s)
   PM :: [Parse a] -> Parse (Many1 a)
+  PS :: [Parse a] -> Parse (SepBy1 a sep)
   PN :: Int -> Parse PrimNat
   PT :: Parse a -> Parse b -> Parse (Then a b)
 
@@ -171,6 +177,10 @@ foo x = case x of
         then replicateM (length kw) Text.Read.get
         else pfail
     M x -> PM <$> (readP_to_Prec $ const $ many1 $ ($ 0) $ readPrec_to_P $ foo x)
+    S x sep -> PS <$> (readP_to_Prec $ const $ sepBy1
+      (($ 0) $ readPrec_to_P $ foo x)
+      (($ 0) $ readPrec_to_P $ foo sep)
+      )
     N -> PN <$> readPrec
     T x y -> PT <$> foo x <*> foo y
 
@@ -180,26 +190,27 @@ instance SGrammar s => Read (Parse s) where
 instance Show (Parse s) where
   show x@PK = showPK x
   show (PM xs) = concatMap show xs
+  show (PS xs) = concatMap show xs -- TODO need to keep separator in parse tree for PP!
   show (PN x) = show x
   show (PT x y) = show x ++ show y
 
-type L = (Then (Keyword "{") (Then (Many1 PrimNat) (Keyword "}")))
+type L = (Then (Keyword "{") (Then (SepBy1 PrimNat (Keyword ",")) (Keyword "}")))
 
 ex :: Grammar L
 ex =
-  T K (T (M N) K)
+  T K (T (S N K) K)
 
 ex1 :: Parse L
 ex1 =
-  PT PK (PT (PM [PN 1, PN 2, PN 3]) PK)
+  PT PK (PT (PS [PN 1, PN 2, PN 3]) PK)
 
 newtype Foo = Foo [Int] -- Our "AST"
   deriving (Read, Show) via (Parse L `As` Foo)
 
 instance Inject (Parse L) Foo where
-  inj (PT PK (PT (PM a) PK)) = Foo $ fmap (\(PN x) -> x) a
+  inj (PT PK (PT (PS a) PK)) = Foo $ fmap (\(PN x) -> x) a
 instance Project (Parse L) Foo where
-  prj (Foo xs) = PT PK $ PT (PM $ fmap PN xs) PK
+  prj (Foo xs) = PT PK $ PT (PS $ fmap PN xs) PK
 instance Isomorphic (Parse L) Foo
 
 type L2 = PrimNat
@@ -211,6 +222,7 @@ data Foo2 = Foo2
 instance Inject (Parse L2) Foo2 where
   inj _ = Foo2
 instance Project (Parse L2) Foo2 where
+  prj = undefined
 instance Isomorphic (Parse L2) Foo2
 
 {-
