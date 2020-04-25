@@ -1,36 +1,36 @@
-{-# OPTIONS_GHC -Werror#-}
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# OPTIONS_GHC -Werror #-}
 
 module Main where
 
-import Data.Bifunctor
-import Data.Kind
-import Control.Monad.Writer (WriterT (..))
-import Data.Coerce (coerce)
-import Data.Traversable (for)
-import Data.Monoid (Any (..), Ap (..))
-import Control.Monad.State
 import Control.Monad.Except
-import GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
-import Data.Proxy
-import Text.Read (Read(..), ReadPrec, pfail, look, readPrec_to_P, readP_to_Prec)
-import Text.ParserCombinators.ReadP(many1, sepBy1)
-import qualified Text.Read
+import Control.Monad.State
+import Control.Monad.Writer (WriterT (..))
+import Data.Bifunctor
+import Data.Coerce (coerce)
+import Data.Kind
 import Data.List (isPrefixOf)
+import Data.Monoid (Any (..), Ap (..))
+import Data.Proxy
+import Data.Traversable (for)
+import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import Iso.Deriving
+import Text.ParserCombinators.ReadP (many1, sepBy1)
+import Text.Read (Read (..), ReadPrec, look, pfail, readP_to_Prec, readPrec_to_P)
+import qualified Text.Read
 
 main = pure () -- TODO
 
@@ -94,10 +94,11 @@ instance Isomorphic (TheseMonad a b) (These a b)
 
 -- |
 -- Abort is like 'State' but allow short-circuiting the computation.
-data Abort s a = Abort { runAbort :: s -> (Maybe a, s) }
+data Abort s a = Abort {runAbort :: s -> (Maybe a, s)}
   deriving (Functor)
-  deriving (Applicative, Monad, MonadState s) via
-    (ExceptT () (State s) `As1` Abort s)
+  deriving
+    (Applicative, Monad, MonadState s)
+    via (ExceptT () (State s) `As1` Abort s)
 
 -- | Abort the computation. The current state will be retained, but no
 -- result will be returned.
@@ -109,8 +110,10 @@ quit x = Abort $ \s -> (Just x, s)
 
 instance Inject (ExceptT () (State s) a) (Abort s a) where
   inj (ExceptT f) = Abort $ \s -> first eitherToMaybe $ runState f s
+
 instance Project (ExceptT () (State s) a) (Abort s a) where
   prj (Abort f) = ExceptT $ StateT $ fmap (pure . first maybeToEither) f
+
 instance Isomorphic (ExceptT () (State s) a) (Abort s a)
 
 eitherToMaybe :: Either a b -> Maybe b
@@ -128,14 +131,12 @@ t = do
   put $ x + 1
   t
 
-
 data Syntax where
   Keyword :: Symbol -> Syntax
-  Many1   :: Syntax -> Syntax
-  SepBy1  :: Syntax -> Syntax -> Syntax
+  Many1 :: Syntax -> Syntax
+  SepBy1 :: Syntax -> Syntax -> Syntax
   PrimNat :: Syntax
-  Then    :: Syntax -> Syntax -> Syntax
-
+  Then :: Syntax -> Syntax -> Syntax
 
 data Grammar :: Syntax -> Type where
   K :: KnownSymbol s => Grammar (Keyword s)
@@ -146,17 +147,21 @@ data Grammar :: Syntax -> Type where
 
 class SGrammar s where
   sing :: Grammar s
+
 instance KnownSymbol s => SGrammar (Keyword s) where
   sing = K
+
 instance SGrammar a => SGrammar (Many1 a) where
   sing = M sing
+
 instance (SGrammar a, SGrammar sep) => SGrammar (SepBy1 a sep) where
   sing = S sing sing
+
 instance SGrammar PrimNat where
   sing = N
+
 instance (SGrammar a, SGrammar b) => SGrammar (Then a b) where
   sing = T sing sing
-
 
 data Parse :: Syntax -> Type where
   PK :: KnownSymbol s => Parse (Keyword s)
@@ -165,28 +170,32 @@ data Parse :: Syntax -> Type where
   PN :: Int -> Parse PrimNat
   PT :: Parse a -> Parse b -> Parse (Then a b)
 
-showPK :: forall proxy s . KnownSymbol s => proxy (Keyword s) -> String
+showPK :: forall proxy s. KnownSymbol s => proxy (Keyword s) -> String
 showPK _ = symbolVal (Proxy @s)
 
 foo :: Grammar s -> ReadPrec (Parse s)
 foo x = case x of
-    k@K -> const PK <$> do
-      let kw = showPK k
-      la <- look
-      if kw `isPrefixOf` la
-        then replicateM (length kw) Text.Read.get
-        else pfail
-    M x -> PM <$> (readP_to_Prec $ const $ many1 $ ($ 0) $ readPrec_to_P $ foo x)
-    S x sep -> PS <$> (readP_to_Prec $ const $ sepBy1
-      (($ 0) $ readPrec_to_P $ foo x)
-      (($ 0) $ readPrec_to_P $ foo sep)
-      )
-    N -> PN <$> readPrec
-    T x y -> PT <$> foo x <*> foo y
+  k@K -> const PK <$> do
+    let kw = showPK k
+    la <- look
+    if kw `isPrefixOf` la
+      then replicateM (length kw) Text.Read.get
+      else pfail
+  M x -> PM <$> (readP_to_Prec $ const $ many1 $ ($ 0) $ readPrec_to_P $ foo x)
+  S x sep ->
+    PS
+      <$> ( readP_to_Prec $ const $
+              sepBy1
+                (($ 0) $ readPrec_to_P $ foo x)
+                (($ 0) $ readPrec_to_P $ foo sep)
+          )
+  N -> PN <$> readPrec
+  T x y -> PT <$> foo x <*> foo y
 
 instance SGrammar s => Read (Parse s) where
   readPrec = case (sing :: Grammar s) of
     g -> foo g
+
 instance Show (Parse s) where
   show x@PK = showPK x
   show (PM xs) = concatMap show xs
@@ -194,7 +203,14 @@ instance Show (Parse s) where
   show (PN x) = show x
   show (PT x y) = show x ++ show y
 
-type L = (Then (Keyword "{") (Then (SepBy1 PrimNat (Keyword ",")) (Keyword "}")))
+type L =
+  Then
+    ( Keyword "{"
+    )
+    ( Then
+        (SepBy1 PrimNat (Keyword ","))
+        (Keyword "}")
+    )
 
 ex :: Grammar L
 ex =
@@ -209,8 +225,10 @@ newtype Foo = Foo [Int] -- Our "AST"
 
 instance Inject (Parse L) Foo where
   inj (PT PK (PT (PS a) PK)) = Foo $ fmap (\(PN x) -> x) a
+
 instance Project (Parse L) Foo where
   prj (Foo xs) = PT PK $ PT (PS $ fmap PN xs) PK
+
 instance Isomorphic (Parse L) Foo
 
 type L2 = PrimNat
@@ -221,17 +239,14 @@ data Foo2 = Foo2
 
 instance Inject (Parse L2) Foo2 where
   inj _ = Foo2
+
 instance Project (Parse L2) Foo2 where
   prj = undefined
-instance Isomorphic (Parse L2) Foo2
 
+instance Isomorphic (Parse L2) Foo2
 {-
 s :: Syntax (((), [(Int, ())]), ()) -- Isomorphic to : [Int]
 s = Then (Then (Keyword "[") (Many1 $ Then PrimNat $ Keyword ",")) (Keyword "]")
 
 -- with suitable Read/Show for Syntax, we can derive Read/Show
 -}
-
-
-
-
