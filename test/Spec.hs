@@ -1,4 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DerivingStrategies #-}
@@ -19,7 +22,9 @@ import Data.Coerce (coerce)
 import Data.Monoid (Any (..), Ap (..))
 import Control.Monad.State
 import Control.Monad.Except
-import GHC.TypeLits (Symbol)
+import GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
+import Data.Proxy
+import Text.Read (Read(..))
 import Iso.Deriving
 
 main = pure () -- TODO
@@ -133,15 +138,23 @@ data Grammar :: Syntax -> Type where
   T :: Grammar a -> Grammar b -> Grammar (Then a b)
 
 data Parse :: Syntax -> Type where
-  PK :: Parse (Keyword s)
+  PK :: KnownSymbol s => Parse (Keyword s)
   PM :: [Parse a] -> Parse (Many1 a)
   PN :: Int -> Parse PrimNat
   PT :: Parse a -> Parse b -> Parse (Then a b)
 
-instance Read (Parse s)
-instance Show (Parse s)
+showPK :: forall s . KnownSymbol s => Parse (Keyword s) -> String
+showPK PK = symbolVal (Proxy @s)
 
-type L = (Then (Keyword "[") (Then (Many1 PrimNat) (Keyword "]")))
+instance Read (Parse s) where
+  readPrec = undefined
+instance Show (Parse s) where
+  show x@PK = showPK x
+  show (PM xs) = concatMap show xs
+  show (PN x) = show x
+  show (PT x y) = show x ++ show y
+
+type L = (Then (Keyword "{") (Then (Many1 PrimNat) (Keyword "}")))
 
 ex :: Grammar L
 ex =
@@ -157,6 +170,7 @@ newtype Foo = Foo [Int] -- Our "AST"
 instance Inject (Parse L) Foo where
   inj (PT PK (PT (PM a) PK)) = Foo $ fmap (\(PN x) -> x) a
 instance Project (Parse L) Foo where
+  prj (Foo xs) = PT PK $ PT (PM $ fmap PN xs) PK
 instance Isomorphic (Parse L) Foo
 
 {-
