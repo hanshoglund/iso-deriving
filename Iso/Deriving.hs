@@ -32,7 +32,9 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Writer
 import Data.Bifunctor ()
+import Text.Read (Read(..))
 import Data.Kind
+import Data.String
 import Data.Profunctor (Profunctor (..))
 import Prelude hiding ((.), id)
 
@@ -69,14 +71,35 @@ newtype As1 (f :: k1 -> Type) (g :: k1 -> Type) (a :: k1)
 --
 newtype As2 f g a b
   = As2 (g a b)
+
+
+-- Note: This type works whenever "the dictionary is a covariant functor"
+--
 -- type As2 :: (k1 -> k2 -> Type) -> (k1 -> k2 -> Type) -> k1 -> k2 -> Type
 
+-- TODO laws:
+--
+-- We want injectivity to prevent things like (fromString "foo" === fromString "bar")
 class Inject a b where
   inj :: a -> b
 
+-- Note: This type works whenever "the dictionary is a contravariant functor"
+--
+-- TODO laws:
+--
+-- We certainly don't want surjectivity: it would prevent e.g. deriving Show for
+-- all finite types!
+--
+-- Injectivity would prevent derived Eq instances from breaking substitutivity.
+-- OTOH it would also prevent things like:
+--
+--    data Point3 = P3 Int Int Int
+--      deriving HasX via (P2 `As` P3)
 class Project a b where
   prj :: b -> a
 
+
+-- Note: This type works whenever "the dictionary is an invariant functor"
 -- |
 -- Class of isomorphic types.
 --
@@ -96,6 +119,15 @@ class Project a b where
 class (Inject a b, Project a b) => Isomorphic a b where
   isom :: Iso' a b
   isom = iso (inj @a @b) (prj @a @b)
+
+-- TODO Enum, Bounded, Real, Integral, Fractional, Floating/RealFloat?, Read, RealFrac, MonadFix, MonadFail, MonadPlus, Arrow et al, MonadZip, Bifoldable, Bitraversable, Profunctor et al, IsString, Storable?, Contravariant, Comonad?, Distributive, MonadTrans, MonadCont
+
+instance (Inject a b, IsString a) => IsString (As a b) where
+  fromString x = As $ inj @a @b $ fromString x
+
+-- TODO right method?
+instance (Inject a b, Read a) => Read (As a b) where
+  readPrec = As . inj @a @b <$> readPrec
 
 instance (Project a b, Eq a) => Eq (As a b) where
   As a == As b = prj @a @b a == prj b
