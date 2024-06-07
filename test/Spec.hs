@@ -16,6 +16,7 @@ import Data.Monoid (Any (..), Ap (..))
 import Control.Monad.State
 import Control.Monad.Except
 import Iso.Deriving
+import Control.Monad (when)
 
 main = pure () -- TODO
 
